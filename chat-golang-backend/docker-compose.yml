@@ -1,0 +1,55 @@
+version: "2.4"
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_CREATE_TOPICS: "goim-push-topic:1:1"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  redis:
+    image: redis:alpine
+    restart: always
+    ports:
+      - "6379:6379"
+  goim:
+    build:
+      context: ./goim/
+    #image: golang
+    ports:
+      - "3101:3101"
+      - "3102:3102"
+      - "3103:3103"
+      - "3109:3109"
+      - "3111:3111"
+      - "3119:3119"
+    volumes:
+      - ./goim/:/data/goim
+      #- ./goim/run.sh:/data/goim/run.sh
+    working_dir: /data/goim/target
+    environment:
+      DEBUG: 1
+    command:
+      - /bin/sh
+      - -c
+      - |
+        ./job -conf=./job.toml -region=sh -zone=sh001 -deploy.env=dev &
+        ./comet -conf=./comet.toml -region=sh -zone=sh001 -deploy.env=dev -weight=10 -addrs=127.0.0.1 -debug=true & 
+        ./ticker -conf=./logic.toml -region=sh -zone=sh001 -deploy.env=dev -weight=10 &
+        ./logic -conf=./logic.toml -region=sh -zone=sh001 -deploy.env=dev -weight=10
+    tty: true
+  discovery:
+    image: golang
+    ports:
+      - "7171:7171"
+    volumes:
+      - ./discovery:/data/discovery
+    working_dir: /data/discovery
+    command: ./discovery -conf configs/discovery-example.toml
