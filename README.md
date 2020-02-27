@@ -32,3 +32,5 @@ npm run dev
 ```
 
 ## 效果图
+
+![demo](./docs/chat.png)
